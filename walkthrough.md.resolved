@@ -1,0 +1,23 @@
+# Manual Transcript Integration Setup
+
+The codebase has been successfully rewritten to bypass the YouTube blocking issue by allowing you to inject transcripts manually.
+
+## What Changed
+
+1. **`manual_transcripts` Directory**
+   A new folder was created at `rag_system/manual_transcripts/`. Instead of reading a broken JSON file, the system now automatically scans this folder for individual `.txt` files.
+   
+2. **`2_prepare_training_data.py`**
+   The extraction pipeline was fundamentally rewritten:
+   - **Regex UI Cleaning:** When you copy a transcript directly from YouTube (the "Show Transcript" button), it includes tons of timestamps (like `0:02`, `14:32:00`) and random brackets describing sound `[cheerful music plays]`. I injected Regular Expressions (Regex) to surgically remove the timestamps while leaving the spoken text completely intact.
+   - **Context Preservation:** Sliced the data generation into contiguous chunks of up to 1500 characters, ensuring those 20-minute video transcripts stay coherent for fine-tuning/RAG context windows instead of being artificially separated blindly.
+
+## Verification
+I created a dummy copy-paste transcript (`test.txt`) and ran the pipeline. The output cleanly stripped all timestamps, parenthesis, and spacing errors, and merged the phrases into a dense language corpus correctly!
+
+> [!TIP]
+> **Next Steps**
+> You can now simply go to the YouTube videos you want to build the knowledge base on, click "Show Transcript", select everything, and paste it into a file like `video1.txt` inside your new `manual_transcripts` folder. Be sure to delete the `test.txt` dummy file first!
+> 
+> Once you have pasted your texts, just run:
+> `python 2_prepare_training_data.py`

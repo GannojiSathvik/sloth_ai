@@ -1,0 +1,23 @@
+# Modify Data Preparation to Process Manual Transcripts
+
+To continue your project without being blocked by YouTube's API, we will transition Step 2 so that it ingests raw transcripts that you physically copy and paste from YouTube's desktop interface.
+
+## User Review Required
+
+> [!IMPORTANT]  
+> After approving this plan, you will need to manually copy the transcripts from your top 10 videos on YouTube and save them as individual `.txt` files inside a new folder called `manual_transcripts/` in your workspace. 
+
+## Proposed Changes
+
+### Data Pipeline Update
+I will modify `2_prepare_training_data.py` so it no longer looks for `channel_data.json` from the broken Step 1 script.
+
+#### [MODIFY] 2_prepare_training_data.py
+1. **Change Input Source**: Will add script logic to automatically scan a folder named `manual_transcripts/`. The script will read every `.txt` file you dump in there.
+2. **Handle Raw UI Timestamps**: When you copy a transcript from the YouTube side panel, it includes raw timestamps like `0:02`, `14:32`, etc. I will update the `clean_text` function to automatically use Regular Expressions (Regex) to scrub these timestamps and extra whitespace out so the model only learns from the spoken words.
+3. **Preserve Context & Chunking**: You mentioned 20-minute videos. To ensure the RAG/Fine-tuning model learns properly, we'll keep all the text but intelligently slice them into chunks of ~500-1000 characters so no data is dropped and full context is kept.
+
+## Verification Plan
+1. We will create a `manual_transcripts` folder.
+2. I will write a dummy test `.txt` file representing a copied transcript.
+3. We will run `2_prepare_training_data.py` and verify that the output cleanly formats it into `training_data.json` without timestamps.

@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expert Advisor - AI Q&A</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary: #667eea;
+            --primary-dark: #764ba2;
+            --success: #48bb78;
+            --warning: #ed8936;
+            --danger: #f56565;
+            --bg-light: #f7fafc;
+            --bg-white: #ffffff;
+            --text-dark: #2d3748;
+            --text-light: #718096;
+            --border: #e2e8f0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: var(--text-dark);
+        }
+        
+        .container {
+            background: var(--bg-white);
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+        
+        .header p {
+            font-size: 14px;
+            opacity: 0.95;
+        }
+        
+        .content {
+            padding: 40px 30px;
+        }
+        
+        .input-section {
+            margin-bottom: 30px;
+        }
+        
+        .input-section label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--text-dark);
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        input[type="text"] {
+            flex: 1;
+            padding: 14px 16px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .btn {
+            padding: 14px 28px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+        
+        .btn:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            background: var(--text-light);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .btn-secondary {
+            background: var(--border);
+            color: var(--text-dark);
+        }
+        
+        .btn-secondary:hover:not(:disabled) {
+            background: #cbd5e0;
+        }
+        
+        .checkbox-group {
+            margin-bottom: 20px;
+        }
+        
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: normal;
+            margin-bottom: 0;
+            cursor: pointer;
+        }
+        
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .response-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid var(--border);
+        }
+        
+        .response {
+            display: none;
+            animation: slideIn 0.4s ease;
+        }
+        
+        .response.visible {
+            display: block;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+        
+        .loading.visible {
+            display: block;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            color: var(--text-light);
+            font-size: 14px;
+        }
+        
+        .response-box {
+            background: var(--bg-light);
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .response-question {
+            color: var(--primary);
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .response-answer {
+            color: var(--text-dark);
+            line-height: 1.8;
+            font-size: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .response-meta {
+            display: flex;
+            gap: 20px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border);
+            font-size: 13px;
+            color: var(--text-light);
+        }
+        
+        .confidence-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .confidence-bar {
+            width: 60px;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: var(--success);
+            border-radius: 3px;
+        }
+        
+        .error-box {
+            background: #fed7d7;
+            color: var(--danger);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--danger);
+            margin-top: 15px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: var(--bg-light);
+            border-radius: 8px;
+        }
+        
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-light);
+            margin-top: 5px;
+        }
+        
+        .history {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid var(--border);
+        }
+        
+        .history h3 {
+            color: var(--text-dark);
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .history-item {
+            background: var(--bg-light);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .history-item:hover {
+            background: #e2e8f0;
+        }
+        
+        .history-question {
+            color: var(--primary);
+            font-weight: 600;
+            font-size: 13px;
+        }
+        
+        .history-answer {
+            color: var(--text-light);
+            font-size: 13px;
+            margin-top: 5px;
+            max-height: 2.6em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        
+        .footer {
+            padding: 15px 30px;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-light);
+        }
+        
+        @media (max-width: 600px) {
+            .header {
+                padding: 30px 20px;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .input-group {
+                flex-direction: column;
+            }
+            
+            .response-meta {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💬 Expert Advisor</h1>
+            <p>Ask questions and get expert advice powered by AI</p>
+        </div>
+        
+        <div class="content">
+            <!-- Input Section -->
+            <div class="input-section">
+                <label for="question">Your Question</label>
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        id="question" 
+                        placeholder="Ask anything..."
+                        onkeypress="handleKeyPress(event)"
+                        autocomplete="off"
+                    >
+                    <button class="btn" onclick="askQuestion()" id="askBtn">
+                        <span>✨</span>
+                        <span>Ask</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Options -->
+            <div class="checkbox-group">
+                <label>
+                    <input type="checkbox" id="useContext" checked>
+                    <span>Use context from training data</span>
+                </label>
+            </div>
+            
+            <!-- Loading State -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <div class="loading-text">Thinking...</div>
+            </div>
+            
+            <!-- Response Section -->
+            <div class="response-section response" id="responseSection">
+                <div class="response-box">
+                    <div class="response-question" id="responseQuestion"></div>
+                    <div class="response-answer" id="responseAnswer"></div>
+                    <div class="response-meta">
+                        <div class="confidence-badge">
+                            <span>Confidence:</span>
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" id="confidenceFill"></div>
+                            </div>
+                            <span id="confidenceValue">85%</span>
+                        </div>
+                        <div>
+                            <span>Context: <strong id="contextCount">0</strong> samples</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="errorBox"></div>
+            </div>
+            
+            <!-- Stats -->
+            <div class="stats" id="stats"></div>
+            
+            <!-- History -->
+            <div class="history" id="historySection" style="display: none;">
+                <h3>📋 Recent Questions</h3>
+                <div id="historyList"></div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            Powered by AI • Model: llama3.1:8b
+        </div>
+    </div>
+    
+    <script>
+        const API_URL = 'http://localhost:8000';
+        let conversationHistory = [];
+        
+        // Load stats on page load
+        loadStats();
+        
+        async function askQuestion() {
+            const question = document.getElementById('question').value.trim();
+            const useContext = document.getElementById('useContext').checked;
+            
+            if (!question) {
+                alert('Please enter a question');
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('loading').classList.add('visible');
+            document.getElementById('responseSection').classList.remove('visible');
+            document.getElementById('askBtn').disabled = true;
+            document.getElementById('question').disabled = true;
+            
+            try {
+                const response = await fetch(`${API_URL}/ask`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        question: question,
+                        include_context: useContext
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Update UI
+                document.getElementById('responseQuestion').textContent = data.question;
+                document.getElementById('responseAnswer').textContent = data.answer;
+                
+                const confidencePercent = Math.round(data.confidence * 100);
+                document.getElementById('confidenceValue').textContent = `${confidencePercent}%`;
+                document.getElementById('confidenceFill').style.width = `${confidencePercent}%`;
+                
+                document.getElementById('contextCount').textContent = data.context_used;
+                
+                // Clear error
+                document.getElementById('errorBox').innerHTML = '';
+                
+                // Show response
+                document.getElementById('responseSection').classList.add('visible');
+                document.getElementById('loading').classList.remove('visible');
+                
+                // Add to history
+                conversationHistory.unshift({
+                    question: question,
+                    answer: data.answer.substring(0, 100) + '...',
+                    timestamp: new Date().toLocaleTimeString()
+                });
+                
+                updateHistory();
+                
+                // Clear input
+                document.getElementById('question').value = '';
+                document.getElementById('question').focus();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                
+                let errorMsg = error.message;
+                if (error.message.includes('Failed to fetch')) {
+                    errorMsg = '⚠️ Cannot connect to API. Make sure backend is running on http://localhost:8000';
+                }
+                
+                document.getElementById('errorBox').innerHTML = 
+                    `<div class="error-box">${errorMsg}</div>`;
+                
+                document.getElementById('responseSection').classList.add('visible');
+                document.getElementById('loading').classList.remove('visible');
+                
+            } finally {
+                document.getElementById('askBtn').disabled = false;
+                document.getElementById('question').disabled = false;
+            }
+        }
+        
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_URL}/stats`);
+                const stats = await response.json();
+                
+                const statsHtml = `
+                    <div class="stat-item">
+                        <div class="stat-value">${stats.total_samples}</div>
+                        <div class="stat-label">Training Samples</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${stats.average_words_per_sample}</div>
+                        <div class="stat-label">Avg Words/Sample</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${(stats.total_training_words / 1000).toFixed(1)}K</div>
+                        <div class="stat-label">Total Words</div>
+                    </div>
+                `;
+                
+                document.getElementById('stats').innerHTML = statsHtml;
+            } catch (error) {
+                console.log('Could not load stats:', error);
+            }
+        }
+        
+        function updateHistory() {
+            if (conversationHistory.length > 0) {
+                document.getElementById('historySection').style.display = 'block';
+                
+                const historyHtml = conversationHistory.map((item, idx) => `
+                    <div class="history-item" onclick="restoreQuestion('${item.question.replace(/'/g, "\\'")}')">
+                        <div class="history-question">${item.question}</div>
+                        <div class="history-answer">${item.answer}</div>
+                    </div>
+                `).join('');
+                
+                document.getElementById('historyList').innerHTML = historyHtml;
+            }
+        }
+        
+        function restoreQuestion(question) {
+            document.getElementById('question').value = question;
+            document.getElementById('question').focus();
+        }
+        
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                askQuestion();
+            }
+        }
+        
+        // Check API connection on load
+        window.addEventListener('load', async () => {
+            try {
+                await fetch(`${API_URL}/health`);
+                console.log('✅ Connected to API');
+            } catch {
+                console.warn('⚠️ API not accessible at ' + API_URL);
+            }
+        });
+    </script>
+</body>
+</html>
