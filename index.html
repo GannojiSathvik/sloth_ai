@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Psychology Advisor</title>
+    <!-- Modern Premium Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0f172a;
+            --bg-glass: rgba(30, 41, 59, 0.7);
+            --bg-glass-hover: rgba(30, 41, 59, 0.9);
+            --border-glass: rgba(255, 255, 255, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.5);
+            --user-bubble: #1e293b;
+            --ai-bubble: rgba(59, 130, 246, 0.15);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at top left, #1e1b4b, var(--bg-base));
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            overflow: hidden;
+        }
+
+        .header {
+            padding: 20px 30px;
+            border-bottom: 1px solid var(--border-glass);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background: #10b981;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #10b981;
+        }
+
+        .header h1 {
+            font-size: 1.2rem;
+            font-weight: 500;
+            margin: 0;
+            letter-spacing: 0.5px;
+        }
+
+        .chat-area {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Scrollbar aesthetics */
+        .chat-area::-webkit-scrollbar {
+            width: 8px;
+        }
+        .chat-area::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .chat-area::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 15px 20px;
+            border-radius: 16px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background: var(--user-bubble);
+            border-bottom-right-radius: 4px;
+            color: #fff;
+        }
+
+        .message.ai {
+            align-self: flex-start;
+            background: var(--ai-bubble);
+            border: 1px solid var(--border-glass);
+            border-bottom-left-radius: 4px;
+            color: #fff;
+        }
+        
+        .sources-tag {
+            display: block;
+            margin-top: 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* Loading Dots Animation */
+        .loading-dots {
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+        }
+        .dot {
+            width: 6px;
+            height: 6px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+
+        .input-area {
+            padding: 20px 30px;
+            border-top: 1px solid var(--border-glass);
+            background: rgba(15, 23, 42, 0.4);
+            display: flex;
+            gap: 15px;
+        }
+
+        .input-box {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 15px 20px;
+            color: var(--text-main);
+            font-size: 1rem;
+            font-family: inherit;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .input-box:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--accent);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .send-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 0 25px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px var(--accent-glow);
+        }
+
+        .send-btn:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px var(--accent-glow);
+        }
+
+        .send-btn:disabled {
+            background: #475569;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <div class="status-dot"></div>
+            <h1>Psychology Core (Gemma 4 RAG)</h1>
+        </div>
+        
+        <div class="chat-area" id="chatbox">
+            <div class="message ai">
+                Hello! I am your completely offline, local AI running heavily engineered RAG context. Ask me anything about dating, psychology, or the video concepts!
+            </div>
+        </div>
+
+        <div class="input-area">
+            <input type="text" id="userInput" class="input-box" placeholder="Ask a psychological question..." onkeypress="handleKeyPress(event)">
+            <button id="sendBtn" class="send-btn" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const chatbox = document.getElementById('chatbox');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function createMessageElement(text, sender) {
+            const el = document.createElement('div');
+            el.className = `message ${sender}`;
+            el.innerHTML = text; // allow basic HTML like <br>
+            chatbox.appendChild(el);
+            chatbox.scrollTop = chatbox.scrollHeight;
+            return el;
+        }
+
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            // 1. Add User Message
+            createMessageElement(text, 'user');
+            userInput.value = '';
+            
+            // Disable input while generating
+            userInput.disabled = true;
+            sendBtn.disabled = true;
+
+            // 2. Create AI thinking bubble
+            const aiBubble = createMessageElement(
+                `<div class="loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`, 
+                'ai'
+            );
+
+            try {
+                // 3. Hit the FastAPI Server
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message: text })
+                });
+
+                if (!response.body) throw new Error("No response body");
+
+                // Start parsing the Server-Sent Events stream
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                
+                aiBubble.innerHTML = ''; // clear loading dots
+                let currentText = '';
+                let sourcesText = '';
+
+                // Loop over the stream
+                let buffer = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    let boundary = buffer.indexOf('\n\n');
+
+                    while (boundary !== -1) {
+                        const ev = buffer.substring(0, boundary);
+                        buffer = buffer.substring(boundary + 2);
+
+                        if (ev.startsWith('data: ')) {
+                            const jsonStr = ev.substring(6);
+                            try {
+                                const data = JSON.parse(jsonStr);
+                                
+                                if (data.type === 'sources') {
+                                    sourcesText = `<span class="sources-tag">Knowledge Sources: ${data.sources.join(', ')}</span>`;
+                                } else if (data.type === 'token') {
+                                    // Replace newlines with HTML breaks
+                                    const formattedContent = data.content.replace(/\n/g, '<br>');
+                                    currentText += formattedContent;
+                                    aiBubble.innerHTML = currentText + sourcesText;
+                                    chatbox.scrollTop = chatbox.scrollHeight;
+                                } else if (data.type === 'error') {
+                                    currentText += `<br><span style='color: #ef4444'>[System Error: ${data.content}]</span>`;
+                                    aiBubble.innerHTML = currentText;
+                                }
+                            } catch (err) {
+                                console.error("Error parsing streaming json", err);
+                            }
+                        }
+                        boundary = buffer.indexOf('\n\n');
+                    }
+                }
+            } catch (err) {
+                aiBubble.innerHTML = `<span style='color: #ef4444'>Network Error: Is the FastAPI server running?</span>`;
+            }
+
+            // Re-enable
+            userInput.disabled = false;
+            sendBtn.disabled = false;
+            userInput.focus();
+        }
+    </script>
+</body>
+</html>
