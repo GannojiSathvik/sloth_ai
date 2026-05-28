@@ -1,4 +1,40 @@
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# macOS
 .DS_Store
+
+# Environment
+.env
+.env.local
+
+# Vector database (large, generated locally)
 chroma_db/
+
+# Raw transcript data (large, generated locally)
+charisma_transcripts.json
+channel_data.json
+
+# Browser cookies — NEVER commit these (sensitive auth tokens)
+cookies.txt
+
+# Temporary subtitle files
+subtitles_tmp/
+
+# Test/partial downloads
+*.part
+*.ytdl
+
+# IDE
+.vscode/
+.idea/
+
+# Training data (large)
+training_data.json
