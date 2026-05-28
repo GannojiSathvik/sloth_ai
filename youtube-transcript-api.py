@@ -1,9 +1,9 @@
 """
-Phase 1 — YouTube Transcript Extractor (yt-dlp based)
-Channel: Charisma on Command
+Phase 1 — YouTube Transcript Extractor (Auto-Proxy Edition)
+Channel: Charisma on Command (@Charismaoncommand)
 
-Uses yt-dlp to download subtitle files (.vtt) directly — much better
-at bypassing YouTube's bot detection than youtube-transcript-api.
+This script will automatically scrape free proxies from the internet if 
+your IP gets blocked, allowing it to run completely hands-free!
 
 Usage:
     python youtube-transcript-api.py
@@ -11,160 +11,114 @@ Usage:
 
 import json
 import os
-import re
 import subprocess
 import time
 import random
-import glob
+import re
+import requests
+
+from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api._errors import (
+    TranscriptsDisabled,
+    NoTranscriptFound,
+    VideoUnavailable,
+    IpBlocked,
+)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 CHANNEL_URL   = "https://www.youtube.com/@Charismaoncommand"
 OUTPUT_FILE   = "charisma_transcripts.json"
-COOKIE_FILE   = "cookies.txt"
-BROWSER       = "chrome"
-SUBTITLE_DIR  = "./subtitles_tmp"       # temp folder for .vtt files
-REQUEST_DELAY = 4.0
-JITTER        = 2.0
+LANG_PRIORITY = ["en", "en-US", "en-GB"]
+REQUEST_DELAY = 3.0        # Base delay between requests
 
 
-# ── Cookie export ─────────────────────────────────────────────────────────────
+class ProxyManager:
+    def __init__(self):
+        self.proxies = []
+        self.current_proxy = None
+        self.session = requests.Session()
+        
+    def refresh_proxies(self):
+        """Scrape fresh free proxies from free-proxy-list.net"""
+        print("\n🔄 [Proxy Manager] Your IP is blocked. Scraping fresh free proxies...")
+        try:
+            res = requests.get('https://free-proxy-list.net/', timeout=10)
+            new_proxies = []
+            for match in re.finditer(r'<tr><td>(\d+\.\d+\.\d+\.\d+)</td><td>(\d+)</td>.*?<td class=\'hm\'>(yes|no)</td>', res.text):
+                if match.group(3) == 'yes':
+                    new_proxies.append(f'http://{match.group(1)}:{match.group(2)}')
+            
+            # Shuffle so we don't hit the exact same ones if we re-scrape
+            random.shuffle(new_proxies)
+            self.proxies = new_proxies
+            print(f"✅ Found {len(self.proxies)} HTTPS proxies to test.")
+        except Exception as e:
+            print(f"⚠️ Failed to scrape proxies: {e}")
 
-def export_cookies() -> bool:
-    if os.path.exists(COOKIE_FILE) and os.path.getsize(COOKIE_FILE) > 500:
-        print(f"🍪 Found existing {COOKIE_FILE} — reusing it")
-        return True
+    def get_working_session(self) -> requests.Session:
+        """Find a working proxy that isn't blocked by YouTube."""
+        while True:
+            if not self.proxies:
+                self.refresh_proxies()
+                if not self.proxies:
+                    print("❌ No proxies available. Sleeping for 60s before retry...")
+                    time.sleep(60)
+                    continue
 
-    print(f"🍪 Exporting cookies from {BROWSER}…")
-    print("   (Mac may ask for login password — enter it, it's safe)")
-    cmd = [
-        "yt-dlp",
-        "--cookies-from-browser", BROWSER,
-        "--cookies", COOKIE_FILE,
-        "--flat-playlist", "--playlist-items", "1",
-        "--print", "%(id)s", "--no-warnings", "--quiet",
-        f"{CHANNEL_URL}/videos",
-    ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-    if os.path.exists(COOKIE_FILE) and os.path.getsize(COOKIE_FILE) > 500:
-        print(f"   ✅ Cookies saved ({os.path.getsize(COOKIE_FILE)} bytes)")
-        return True
-    print(f"   ⚠️  Cookie export failed: {result.stderr[:200]}")
-    return False
+            p = self.proxies.pop(0)
+            print(f"   Testing proxy: {p} ... ", end="", flush=True)
+            
+            session = requests.Session()
+            session.proxies = {'http': p, 'https': p}
+            
+            # Use a short timeout so we don't waste time on dead proxies
+            session.request = lambda method, url, **kwargs: requests.Session.request(
+                session, method, url, timeout=8, **kwargs
+            )
+            
+            try:
+                # Test against a known video to see if proxy works and isn't IP-blocked
+                yt = YouTubeTranscriptApi(http_client=session)
+                yt.list('RS74828r7eU')
+                print("✅ Working!")
+                self.current_proxy = p
+                self.session = session
+                return session
+            except IpBlocked:
+                print("🚫 Blocked by YouTube")
+            except Exception as e:
+                print(f"❌ Dead ({type(e).__name__})")
+
+    def handle_block(self):
+        """Called when the current proxy gets blocked."""
+        print(f"\n🚫 Proxy {self.current_proxy} got blocked by YouTube.")
+        self.current_proxy = None
 
 
-# ── Get video list ─────────────────────────────────────────────────────────────
+# ── Get all video IDs ──────────────────────────────────────────────────────────
 
 def get_video_ids() -> list[dict]:
-    print(f"\n📡 Fetching video list…")
+    print(f"📡 Fetching video list from YouTube…")
     cmd = [
-        "yt-dlp",
-        "--flat-playlist",
+        "yt-dlp", "--flat-playlist",
         "--print", "%(id)s\t%(title)s",
         "--no-warnings",
+        f"{CHANNEL_URL}/videos",
     ]
-    if os.path.exists(COOKIE_FILE):
-        cmd += ["--cookies", COOKIE_FILE]
-    cmd.append(f"{CHANNEL_URL}/videos")
-
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
     videos = []
     for line in result.stdout.strip().split("\n"):
         parts = line.split("\t", 1)
         if len(parts) == 2:
             vid_id, title = parts[0].strip(), parts[1].strip()
-            videos.append({
-                "video_id": vid_id,
-                "title":    title,
-                "url":      f"https://www.youtube.com/watch?v={vid_id}",
-            })
-    print(f"✅ Found {len(videos)} videos")
+            if vid_id:
+                videos.append({
+                    "video_id": vid_id,
+                    "title":    title,
+                    "url":      f"https://www.youtube.com/watch?v={vid_id}",
+                })
+    print(f"✅ Found {len(videos)} videos\n")
     return videos
-
-
-# ── Parse .vtt subtitle file ──────────────────────────────────────────────────
-
-def parse_vtt(vtt_path: str) -> str:
-    """Convert a .vtt subtitle file into clean plain text."""
-    with open(vtt_path, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    # Remove WEBVTT header and timestamps
-    content = re.sub(r"WEBVTT.*?\n\n", "", content, flags=re.DOTALL)
-    content = re.sub(r"\d{2}:\d{2}:\d{2}\.\d+ --> \d{2}:\d{2}:\d{2}\.\d+.*\n", "", content)
-    content = re.sub(r"<[^>]+>", "", content)           # remove <c> tags
-    content = re.sub(r"&amp;", "&", content)
-    content = re.sub(r"&lt;", "<", content)
-    content = re.sub(r"&gt;", ">", content)
-
-    # Deduplicate repeated lines (auto-captions repeat a lot)
-    lines = content.strip().split("\n")
-    seen = set()
-    unique = []
-    for line in lines:
-        line = line.strip()
-        if line and line not in seen:
-            seen.add(line)
-            unique.append(line)
-
-    return " ".join(unique)
-
-
-# ── Download subtitles for one video via yt-dlp ───────────────────────────────
-
-def fetch_transcript_ytdlp(video_id: str, title: str) -> str | None:
-    """
-    Download auto-generated subtitles using yt-dlp.
-    yt-dlp has much better bot-evasion than youtube-transcript-api.
-    """
-    os.makedirs(SUBTITLE_DIR, exist_ok=True)
-    out_template = os.path.join(SUBTITLE_DIR, f"{video_id}")
-    url = f"https://www.youtube.com/watch?v={video_id}"
-
-    cmd = [
-        "yt-dlp",
-        "--write-auto-sub",         # download auto-generated captions
-        "--write-sub",              # also try manual captions
-        "--sub-lang", "en",
-        "--sub-format", "vtt",
-        "--skip-download",          # don't download the video itself
-        "--no-warnings",
-        "--output", out_template,
-    ]
-    if os.path.exists(COOKIE_FILE):
-        cmd += ["--cookies", COOKIE_FILE]
-    cmd.append(url)
-
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-
-        # Find the downloaded .vtt file (yt-dlp names it like: ID.en.vtt)
-        vtt_files = glob.glob(f"{out_template}*.vtt")
-        if not vtt_files:
-            # Check stderr for clues
-            stderr = result.stderr.lower()
-            if "no subtitles" in stderr or "requested format is not available" in stderr:
-                print(f"   ⚠️  No English captions available")
-            elif "blocked" in stderr or "429" in stderr:
-                print(f"   🚫 IP-blocked by YouTube")
-            else:
-                print(f"   ⚠️  No .vtt file downloaded")
-            return None
-
-        # Parse the first matching .vtt file
-        text = parse_vtt(vtt_files[0])
-
-        # Clean up temp files
-        for f in vtt_files:
-            os.remove(f)
-
-        return text if len(text) > 50 else None
-
-    except subprocess.TimeoutExpired:
-        print(f"   ⚠️  Timed out downloading subtitles")
-        return None
-    except Exception as e:
-        print(f"   ⚠️  Error: {str(e)[:100]}")
-        return None
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -174,7 +128,7 @@ def load_existing() -> dict[str, dict]:
         with open(OUTPUT_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
         existing = {v["video_id"]: v for v in data}
-        print(f"📂 Loaded {len(existing)} existing transcripts — will skip these")
+        print(f"📂 Resuming: {len(existing)} already saved — skipping these")
         return existing
     return {}
 
@@ -182,17 +136,18 @@ def load_existing() -> dict[str, dict]:
 def save(records: list[dict]) -> None:
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(records, f, indent=2, ensure_ascii=False)
-    print(f"   💾 Saved {len(records)} total → {OUTPUT_FILE}")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
     print("=" * 60)
-    print("  Charisma on Command — Transcript Extractor (yt-dlp)")
+    print("  Charisma on Command — Transcript Extractor")
+    print("  (AUTO-PROXY EDITION — 100% Hands-Free!)")
     print("=" * 60)
+    print()
 
-    export_cookies()
+    # Disconnect VPN if they are using one, because we handle proxies now
     existing = load_existing()
     videos   = get_video_ids()
 
@@ -200,8 +155,27 @@ def main():
         print("❌ No videos found. Exiting.")
         return
 
-    results  = list(existing.values())
-    fetched  = skipped = failed = 0
+    results = list(existing.values())
+    
+    proxy_manager = ProxyManager()
+    
+    # We start with NO proxy (your home IP). If it works, great. If blocked, we switch to proxies.
+    session = requests.Session()
+    session.request = lambda method, url, **kwargs: requests.Session.request(
+        session, method, url, timeout=10, **kwargs
+    )
+    yt = YouTubeTranscriptApi(http_client=session)
+    
+    # Check if home IP is already blocked
+    try:
+        yt.list('RS74828r7eU')
+    except IpBlocked:
+        session = proxy_manager.get_working_session()
+        yt = YouTubeTranscriptApi(http_client=session)
+    except Exception:
+        pass
+
+    fetched = skipped = failed = no_captions = 0
 
     for i, video in enumerate(videos, 1):
         vid_id = video["video_id"]
@@ -212,32 +186,94 @@ def main():
             continue
 
         print(f"\n[{i}/{len(videos)}] {title[:65]}…")
-        transcript = fetch_transcript_ytdlp(vid_id, title)
+        
+        while True:
+            try:
+                transcript_list = yt.list(vid_id)
+                try:
+                    transcript = transcript_list.find_transcript(LANG_PRIORITY)
+                except NoTranscriptFound:
+                    try:
+                        transcript = transcript_list.find_generated_transcript(LANG_PRIORITY)
+                    except NoTranscriptFound:
+                        all_t = list(transcript_list)
+                        if not all_t:
+                            result = None
+                        else:
+                            transcript = all_t[0]
 
-        if transcript:
+                if 'result' not in locals():
+                    snippets = transcript.fetch()
+                    result = " ".join(s.text.replace("\n", " ") for s in snippets).strip()
+                    del locals()['result'] # Clean up for next iteration
+                    result = " ".join(s.text.replace("\n", " ") for s in snippets).strip()
+                break # Success! Break out of the while loop
+
+            except IpBlocked:
+                # Our current proxy (or home IP) got blocked mid-run. Get a new one!
+                if proxy_manager.current_proxy:
+                    proxy_manager.handle_block()
+                session = proxy_manager.get_working_session()
+                yt = YouTubeTranscriptApi(http_client=session)
+                # Loop restarts and tries fetching the same video again with the new proxy
+
+            except requests.exceptions.RequestException as e:
+                print(f"   ⚠️ Connection error ({type(e).__name__}). Switching proxy...")
+                if proxy_manager.current_proxy:
+                    proxy_manager.handle_block()
+                session = proxy_manager.get_working_session()
+                yt = YouTubeTranscriptApi(http_client=session)
+                
+            except (TranscriptsDisabled, NoTranscriptFound):
+                print("   ⚠️  No captions available for this video")
+                result = None
+                break
+
+            except VideoUnavailable:
+                print("   ⚠️  Video is private or unavailable")
+                result = None
+                break
+
+            except Exception as e:
+                err = str(e)
+                if "blocked" in err.lower() or "429" in err.lower() or "ipblocked" in err.lower():
+                    if proxy_manager.current_proxy:
+                        proxy_manager.handle_block()
+                    session = proxy_manager.get_working_session()
+                    yt = YouTubeTranscriptApi(http_client=session)
+                    continue
+                
+                print(f"   ⚠️  Error: {err[:120]}")
+                result = None
+                break
+
+        if result:
             results.append({
                 "video_id":     vid_id,
                 "title":        title,
                 "url":          video["url"],
                 "channel_name": "Charisma on Command",
-                "transcript":   transcript,
+                "transcript":   result,
             })
             fetched += 1
-            print(f"   ✅ {len(transcript):,} chars")
-        else:
-            failed += 1
-
-        if fetched > 0 and fetched % 10 == 0:
+            print(f"   ✅ {len(result):,} chars")
+            
+            # Save every time to ensure we don't lose data if a proxy hangs
             save(results)
+        elif result is None:
+            failed += 1
+            no_captions += 1
 
-        time.sleep(REQUEST_DELAY + random.uniform(-1, JITTER))
+        time.sleep(REQUEST_DELAY + random.uniform(-1, 2.0))
 
     save(results)
     print(f"\n{'=' * 60}")
     print(f"✅ Done!")
-    print(f"   Fetched : {fetched} | Skipped : {skipped} | Failed : {failed}")
-    print(f"   Total   : {len(results)} transcripts → {OUTPUT_FILE}")
-    print(f"\n▶  Next: python chuck_embeded.py")
+    print(f"   Fetched       : {fetched} new transcripts")
+    print(f"   Skipped       : {skipped} (already saved)")
+    print(f"   No captions   : {no_captions}")
+    print(f"   Total in file : {len(results)}")
+    print(f"\n▶  Next step: python chuck_embeded.py")
 
 
 if __name__ == "__main__":
