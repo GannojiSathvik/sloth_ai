@@ -1,13 +1,17 @@
 import ChatUI from "@/components/ChatUI";
 
+export const metadata = {
+  title: "Sloth AI — AI Knowledge Chat",
+  description: "Dual AI chat powered by YouTube channel knowledge bases.",
+};
+
 export default function Home() {
   return (
-    <main className="min-h-screen p-4 md:p-8 flex flex-col items-center justify-center relative overflow-hidden">
-      {/* Background decorations */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-600/20 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-purple-600/20 blur-[120px] pointer-events-none" />
-      
-      <div className="z-10 w-full h-[90vh] flex">
+    <main className="min-h-screen p-4 md:p-6 flex flex-col items-center justify-center relative overflow-hidden">
+      {/* Static deep background */}
+      <div className="fixed inset-0 bg-[#07080d] -z-10" />
+
+      <div className="z-10 w-full h-[92vh] flex max-w-4xl">
         <ChatUI />
       </div>
     </main>

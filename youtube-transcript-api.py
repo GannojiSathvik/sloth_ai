@@ -187,6 +187,8 @@ def main():
 
         print(f"\n[{i}/{len(videos)}] {title[:65]}…")
         
+        result = None # Reset result for this video
+        
         while True:
             try:
                 transcript_list = yt.list(vid_id)
@@ -198,14 +200,12 @@ def main():
                     except NoTranscriptFound:
                         all_t = list(transcript_list)
                         if not all_t:
-                            result = None
+                            transcript = None
                         else:
                             transcript = all_t[0]
 
-                if 'result' not in locals():
+                if transcript is not None:
                     snippets = transcript.fetch()
-                    result = " ".join(s.text.replace("\n", " ") for s in snippets).strip()
-                    del locals()['result'] # Clean up for next iteration
                     result = " ".join(s.text.replace("\n", " ") for s in snippets).strip()
                 break # Success! Break out of the while loop
 
